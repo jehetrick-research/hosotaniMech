@@ -1,0 +1,557 @@
+28 Sept 2016
+
+Reviewing milcv6.2 code for dense_su3.
+For gauge + TrP_A action, we must use metropolis updates (for now),
+since TrP_A = |TrP_f|^2 + 1.
+
+In dense_su3/ the file metropolis_dense.c has monte_space/time which 
+does metropolis with det(P + C) added to action.
+
+dsdu_...c creates staples.
+
+Need to add ploop_less_slice() to action.
+
+---however, we need to port this metropolis update to v7 because it
+won't compile with MPI in v6.2.
+
+So... the plan:
+
+* hosotaniMech/ is a copy of pure_gauge/
+
+* port metropolis_dense.c to hosotani/
+
+* get a "monte()" metropolis update working. Perhaps with just the Wilson action first.
+
+* add the Ploop_less_slice part
+
+* Old action / New action with h( |Tr P_f|^2 + 1 )
+
+* Generate lattices
+
+* Test
+
+* Generate lattices for ks_spectrum
+
+* Investigate splittings in broken phases
+
+-----------------------------------------
+29 Sept 2016
+
+compiled su3_trP !!
+
+input setup:
+
+start: Thu Sep 29 10:35:08 2016
+
+type 0 for no prompts, 1 for prompts, or 2 for proofreading
+1
+enter nx 4
+nx 4
+enter ny 4
+ny 4
+enter nz 4
+nz 4
+enter nt 4
+nt 4
+enter iseed 7
+iseed 7
+LAYOUT = Hypercubes, options = hyper_prime,
+automatic hyper_prime layout
+ON EACH NODE 4 x 4 x 4 x 4
+Mallocing 0.2 MBytes per node for lattice
+
+
+enter warms 0
+warms 0
+enter trajecs 5
+trajecs 5
+enter traj_between_meas 1
+traj_between_meas 1
+enter beta 5.6
+beta 5.6
+enter h -0.1
+h -0.1
+enter steps_per_trajectory 1
+steps_per_trajectory 1
+enter qhb_steps 1
+qhb_steps 1
+enter 'continue', 'fresh', 'reload_ascii', 'reload_serial', or 'reload_parallel'
+fresh
+fresh 
+enter 'no_gauge_fix', 'landau_gauge_fix', or 'coulomb_gauge_fix'
+no_gauge_fix
+NOT fixing the gauge
+'forget' lattice at end,  'save_ascii', 'save_serial', 'save_parallel', 'save_checkpoint', 'save_serial_fm', 'save_serial_scidac', 'save_parallel_scidac', 'save_multifile_scidac', 'save_partfile_scidac', 'save_serial_archive', 'save_serial_ildg', 'save_parallel_ildg', 'save_partfile_ildg', or 'save_multifile_ildg'
+forget
+forget 
+
+
+...
+seg fault. :(
+
+unit gauge configuration loaded
+CHECK PLAQ: 3.000000e+00 3.000000e+00
+CHECK NERSC LINKTR: 1.000000e+00 CKSUM: 0
+Unitarity checked.  Max deviation 0.00e+00
+Time to check unitarity = 1.099110e-04
+WARMUPS COMPLETED
+monte_space: accept= 156 reject= 612 fraction= 0.20  theta_rms= 0.421
+*** glibc detected *** su3_trP: free(): invalid pointer: 0x00000000024f2070 ***
+======= Backtrace: =========
+/lib64/libc.so.6(+0x75916)[0x7f6826ba9916]
+su3_trP[0x416a7a]
+su3_trP[0x42059b]
+su3_trP[0x421622]
+su3_trP[0x41c363]
+su3_trP[0x401d1c]
+/lib64/libc.so.6(__libc_start_main+0xfd)[0x7f6826b52cdd]
+su3_trP[0x401b89]
+======= Memory map: ========
+00400000-0042f000 r-xp 00000000 fd:02 61221925                           /home/jhetrick/Code/milc_qcd-7.7.8/hosotaniMech/su3_trP
+0062f000-00630000 rw-p 0002f000 fd:02 61221925                           /home/jhetrick/Code/milc_qcd-7.7.8/hosotaniMech/su3_trP
+
+....................................
+
+Turns out, (now testing) that there is a line our of order in 
+metropolis_dense.c !!
+
+In the function: ploop_less_slice(...):
+
+
+    FORSOMEPARITY( i,s,l_parity )if(s->t==c_time){
+      mult_su3_nn( &(s->link[TUP]), (su3_matrix *)gen_pt[0][i],
+        &(s->ploop_t) );
+        /* since only on one time slice, don't have to worry if
+>           gen_pt points to ploop_t */
+>    } /* end loop over sites at time l_time */
+>    cleanup_gather(tag);
+  } /* end loop over l_times */
+
+
+These > lines were:
+
+>           gen_pt points to ploop_t */
+>    cleanup_gather(tag);
+>    } /* end loop over sites at time l_time */
+
+WTF?!
+
+....................................
+
+Testing with h=0.0 to see if I get deconfinement on 16^3 x 4.
+b=5.65, 5.7, 5.75
+
+...................................
+
+30 Sept.
+
+Changed this line:
+
+	  newaction -= h*trPA;
+
+in metropolis_trP.c so that h input is +positive, by in the action is 
+negative. This means the input file will have
+
+h = 0.02
+
+rather than h = -0.02
+
+..................................
+
+Oct 17 2016
+
+Added flux(...) which puts flux through a timeslice, and monte_space_flux() 
+which leaves the links which produce the flux, alone.
+
+Next: write code to measure flux on a given plane.
+      add plaq[6] field to each site
+      modify d_plaq() to store plaquettes at each site 
+      sum plaqs over plane
+
+...................................
+
+Dec 8 2016
+
+Testing twisted staples.
+First, untwisted:
+
+For standard staples, call dsdu_qhb, and save staple sum
+into s.staple[dir]. Print s.staple[0] at each site.
+...
+x= 0 y= 0 z= 0 t= 0 dir= 0 staple= 5.950341 0.395354
+x= 2 y= 0 z= 0 t= 0 dir= 0 staple= 5.950341 0.395354
+x= 1 y= 1 z= 0 t= 0 dir= 0 staple= 5.960083 0.598003
+x= 3 y= 1 z= 0 t= 0 dir= 0 staple= 5.960083 0.598003
+x= 0 y= 2 z= 0 t= 0 dir= 0 staple= 5.870607 1.190031
+x= 2 y= 2 z= 0 t= 0 dir= 0 staple= 5.870607 1.190031
+x= 1 y= 3 z= 0 t= 0 dir= 0 staple= 5.801413 1.380750
+x= 3 y= 3 z= 0 t= 0 dir= 0 staple= 5.801413 1.380750
+
+Check (ipython):
+
+In [7]: def s(w,y,Ny):
+    return np.exp(-w*1j*((y-1+Ny)%Ny)) + np.exp(-w*1j*((y+1)%Ny)) + 4*np.exp(-w*1j*y)
+   ...: 
+
+In [8]: for y in [0,1,2,3]:
+   ...:     print(s(0.1,y,4))
+   ...:     
+(5.9503406544-0.395353623308j)
+(5.96008323895-0.598002997382j)
+(5.87060696577-1.19003094649j)
+(5.80141253434-1.38075015744j)
+
+Seems, my normalization in the milc code is U_x(x,y,z,t) = exp(i*w*y).
+
+NO. Recall: It's MILC's staple normalization Staple_milc = Staple_normal^*.
+
+
+Now twisted:
+Should be(?):
+
+In [7]: def s(w,y,Ny):
+    return np.exp(-w*1j*((y-1+Ny)%Ny)) + np.exp(-w*1j*((y+1)%Ny)) \
+           + 4*np.exp(-w*1j*y)
+   ...: 
+
+In [8]: for y in [0,1,2,3]:
+   ...:     print(s(0.1,y,4))
+   ...:     
+(5.9503406544-0.395353623308j)
+(5.96008323895-0.598002997382j)
+(5.87060696577-1.19003094649j)
+(5.80141253434-1.38075015744j) <-- this one is wrong
+
+x= 0 y= 0 z= 0 t= 3 dir= 0 staple= 5.990008 0.000000
+x= 2 y= 0 z= 0 t= 3 dir= 0 staple= 5.990008 0.000000
+x= 1 y= 1 z= 0 t= 3 dir= 0 staple= 5.960083 0.598003
+x= 3 y= 1 z= 0 t= 3 dir= 0 staple= 5.960083 0.598003
+x= 0 y= 2 z= 0 t= 3 dir= 0 staple= 5.870607 1.190031
+x= 2 y= 2 z= 0 t= 3 dir= 0 staple= 5.870607 1.190031
+x= 1 y= 3 z= 0 t= 3 dir= 0 staple= 5.801809 0.979461
+x= 3 y= 3 z= 0 t= 3 dir= 0 staple= 5.801809 0.979461
+
+.........................................
+31 Dec 2016
+
+Must fix dsdu_twist() and calling functions to take 'w' as an argument.
+
+
+.........................................
+21 Jan 2017
+
+myrand: drand48 0.653439
+is the last line with r that is the same in out.4u1 and out.4flux
+
+out.4flux ends before out.4u1, and goes into PLAQ[] dump
+
+after 
+myrand: drand48 0.004650
+
+CALL myrand() in monte_space_flux() accept/reject
+becomes
+CALL make_change() in monte_time_twist()
+CALL make_change()
+myrand: drand48 0.690202
+myrand: drand48 0.846503
+
+
+out.4flux has two lines of myrand:
+
+CALL make_change() in monte_time_twist()
+CALL make_change()
+myrand: drand48 0.646007
+myrand: drand48 0.960741
+CALL make_change() in monte_time_twist()
+CALL make_change()
+myrand: drand48 0.757838
+myrand: drand48 0.072180
+CALL make_change() in monte_time_twist()
+CALL make_change()
+myrand: drand48 0.219212
+CALL make_change() in monte_time_twist()
+CALL make_change()
+myrand: drand48 0.653439
+
+Staples are different starting from the beginning.
+
+......................................
+
+15 Apr 2017
+
+Had to reconstruct research point--getting pure U(1) code to work in
+MILC code.  The problem was that I was trying to run parallel (MPI)
+code using drand48() for the random generator.  I wanted to use
+drand48, so that I could compare the C U(1) code to MILC
+code. However, in parallel, the drand48() calls produce the same
+random numbers on each node.
+
+Milc pure U(1) code now matches (PLAQ) with pureU1 C code.
+
+...............................
+
+26 Apr
+
+Starting on su3_flux code. Make_template line is:
+
+control_flux.o update_flux.o flux.o metropolis_flux.o dsdu_twist.o plaq_twist.o twist.o dsdu_qhb.o
+
+...................................
+
+27 Apr
+
+Uncommented flux_plane(w, 3) in control_flux.c.
+With flux_plane, w = 0.1, initial plaquette matches u1twist with w=0.1:
+
+u1twist:
+# Nx Ny Nz Nt Nvol = 2 2 2 2 16
+# beta    = 1.000000
+# warms   = 0
+# trajecs = 1
+# measure = 1
+# w flux  = 0.100000
+# seed    = 0
+# init = 0 cold
+# initialized COLD lattice
+# added xy flux plane at z=0
+FLUX 1.000000 0.100000 0.100000 : 1.000000 1.000000
+# initial plaqette 1.000000 0.999167
+
+su3_flux:
+warms 0
+trajecs 1
+traj_between_meas 1
+beta 1
+h 0
+steps_per_trajectory 1
+qhb_steps 1
+fresh
+NOT fixing the gauge
+forget
+unit gauge configuration loaded
+CHECK PLAQ: 3.000000e+00 3.000000e+00
+CHECK NERSC LINKTR: 1.000000e+00 CKSUM: c0000000
+Unitarity checked.  Max deviation 0.00e+00
+Time to check unitarity = 1.811981e-05
+#meas data: beta h P_re P_im plaq_s plaq_t plaq
+INITIAL 1.000000 0.000000 1.000000 0.000000 1.000000 1.000000 1.000000
+plaq_twist 0.998335 1.000000 0.999167
+
+..................
+
+Comparing link and staple on 2^4 U1 and MILC twist lattices (w=0.1).
+See files out.2
+
+Link agrees, MILC staple is CC of U1.  
+
+Recall how MILC calculates the staple... Is it CC? If so, the update
+needs to be correspondingly multiplied.
+
+...................
+
+Comparing PLAQ values. Reload test2.lat into both u1twist and su3_flux with w=0.1.
+
+First--Milc and U1 plaq's are CCs.
+
+PLAQ values at 0000 match. Values at 1100 differ:
+MILC:
+x= 1 y= 1 z= 0 t= 0:
+PLAQ[0]: -0.196554 -0.980493
+PLAQ[1]: -0.408957 -0.912553
+PLAQ[2]: 0.818546 0.574441
+PLAQ[3]: 0.696727 -0.717336
+PLAQ[4]: 0.956920 0.290353
+PLAQ[5]: 0.782276 0.622932
+
+U1:
+P 1 1 0 0 :
+(0.002158,0.999998)
+(-0.408957,0.912553)
+(0.818546,-0.574441)
+(0.696727,0.717336)
+(0.956920,-0.290353)
+(0.782276,-0.622932)
+
+Others:
+x= 0 y= 1 z= 1 t= 0:
+PLAQ[0]: 0.959190 0.282763
+P 0 1 1 0 :
+(0.883893,-0.467688)
+
+x= 0 y= 1 z= 0 t= 1:
+PLAQ[0]: 0.566182 -0.824280
+P 0 1 0 1 :
+(0.718655,0.695366)
+
+x= 1 y= 1 z= 1 t= 1:
+PLAQ[0]: 0.994119 -0.108294
+P 1 1 1 1 :
+(0.995817,-0.091366)
+
+x= 0 y= 1 z= 0 t= 0:
+PLAQ[0]: 0.002158 0.999998
+P 0 1 0 0 :
+(-0.196554,-0.980493)
+
+x= 1 y= 1 z= 1 t= 0:
+PLAQ[0]: 0.824111 -0.566428
+P 1 1 1 0 :
+(0.920216,0.391411)
+
+x= 1 y= 1 z= 0 t= 1:
+PLAQ[0]: 0.718655 0.695367
+P 1 1 0 1 :
+(0.566182,-0.824280)
+
+x= 0 y= 1 z= 1 t= 1:
+PLAQ[0]: 0.377439 0.926035
+P 0 1 1 1 :
+(0.185940,-0.982561)
+
+grep 'P ' NOTES shows:
+P 1 1 0 0 :
+P 0 1 1 0 :
+P 0 1 0 1 :
+P 1 1 1 1 :
+P 0 1 0 0 :
+P 1 1 1 0 :
+P 1 1 0 1 :
+P 0 1 1 1 :
+
+All offending sites have y=1, at the y-boundary.
+So, the w-phase is not working.
+
+......................
+
+Un-twisted plaquette, read from input lattice is:
+CHECK PLAQ: 2.405744e+00 2.558494e+00
+In [1]: (2.405744e+00 + 2.558494e+00 -2)/4
+Out[1]: 0.7410595
+
+Initial measured:
+w = 0.100000
+#meas data: beta h P_re P_im plaq_s plaq_t plaq
+INITIAL 1.000000 0.000000 0.673048 0.000000 0.702872 0.779247 0.741060
+from:
+ d_plaquette(&dssplaq,&dstplaq);
+        plp = ploop();
+        if(this_node==0)printf("#meas data: beta h P_re P_im plaq_s plaq_t plaq\n");
+        if(this_node==0)printf("INITIAL %f %f %f %f %f %f %f\n",
+
+Untwisted matches.
+
+Next: fluxplane(w,3) is installed.
+Then plaq_twist is called, which dumps plaq @ site.
+
+...............
+
+FIxed. in U1/measure.c
+
+Setting w-phase was outside of the for loop:
+
+double plaq_twist() {
+...
+
+   for(t=0; t<Nt; t++) {
+      for(z=0; z<Nz; z++) {
+         for(y=0; y<Ny; y++) {
+            for(x=0; x<Nx; x++) {
+
+This [  was outside (above) the for(t=0...) loops.
+
+[      // put in BC phases for U_x = L[..][0]
+[      wphase = (y==Ny-1)&&(x==0)&&(z==0) ? cos(Ny*w) - I*sin(Ny*w) : 1.0 + I*0.0;
+[      wphasecc = (y==0) ? cos(Ny*w) + I*sin(Ny*w) : 1.0 + I*0.0;
+
+      // p01, p02, p03
+      stptmp  = L[t][z][y][x][0];
+      stptmp *= L[t][z][y][(x+1)%Nx][1];
+
+.....................
+
+Now, after flux plane is installed,
+
+MILC:
+PLAQTWIST 1.000000 0.000000 0.673048 0.000000 0.554694 0.712375 0.633535
+
+U1:
+# initial plaqette 1.000000 0.633535
+
+match.
+
+...........................
+
+Next, Staples differ:
+
+U1:   S 1 1 0 0 [1]: 4.318311 -0.300717
+MILC: S 1 1 0 0 [1]: 3.998693 0.536772
+
+U1:   S 0 1 1 0 [1]: 3.277657 -3.644906
+MILC: S 0 1 1 0 [1]: 3.083538 3.991598
+
+U1:   S 0 1 0 1 [1]: 4.377495 -1.941144
+MILC: S 0 1 0 1 [1]: 4.036657 2.145369
+
+U1:   S 1 1 1 1 [1]: 4.048194 -0.004831
+MILC: S 1 1 1 1 [1]: 3.653357 -0.039684
+
+U1:   S 0 1 0 0 [1]: 2.296314 -1.711355
+MILC: S 0 1 0 0 [1]: 2.562462 2.006386
+
+U1:   S 1 1 1 0 [1]: 3.898277 -3.695759
+MILC: S 1 1 1 0 [1]: 3.568322 3.917136
+
+U1:   S 1 1 0 1 [1]: 2.968259 -1.849834
+MILC: S 1 1 0 1 [1]: 2.904153 2.241967
+
+U1:   S 0 1 1 1 [1]: 5.607761 -0.016959
+MILC: S 0 1 1 1 [1]: 5.358219 0.326162
+
+grep 'MILC: S' NOTES:
+MILC: S 1 1 0 0 [1]: 3.998693 0.536772
+MILC: S 0 1 1 0 [1]: 3.083538 3.991598
+MILC: S 0 1 0 1 [1]: 4.036657 2.145369
+MILC: S 1 1 1 1 [1]: 3.653357 -0.039684
+MILC: S 0 1 0 0 [1]: 2.562462 2.006386
+MILC: S 1 1 1 0 [1]: 3.568322 3.917136
+MILC: S 1 1 0 1 [1]: 2.904153 2.241967
+MILC: S 0 1 1 1 [1]: 5.358219 0.326162
+
+All have y=1 and dir=1.
+
+..........................
+
+Fixed above: in dsdu_twist.c, multiply by wphase was nn -> na.
+
+........................
+
+Now, in update_flux.c: monte_time_flux (or twist) has SU(3) action!!!
+Need to move to monte_space_flux() and all dirs, or special monte_time_twist_u1()
+Need to preserve for later generalization to SU(3) and h*Tr(P) term.
+
+.................................
+
+29 Apr 2017  Ashland, OR
+
+Changed monte_space_flux() to monte_flux()
+Changed FORALLUPDIR to for(dir=0<4).
+
+Produces same plaq on in.8 as does U1/Twist/u1twist with same parms.
+
+..........................
+
+Outline of work for magnetic + trP code:
+
+* build structure to messure total flux through xy planes at each z.
+* reproduce monopole condensation in subgroup lambda_3.
+* code update to do SU(3) updates with -h*TrP.
+* code flux in lambda_8
+* play
+
+.............................
+
+1 May 2017, Stockton
+
+Above first two *'s are complete. 
+Next: code -h*TrP with flux. 
+- metropolis update with TrP needs to have an if() so as not to update fluxplane.
