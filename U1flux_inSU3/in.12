@@ -1,0 +1,30 @@
+prompt 0
+nx 12
+ny 12
+nz 12
+nt 12
+iseed 1111
+
+warms 10000
+trajecs 2000
+traj_between_meas 100
+beta 0.8
+h 0.00
+steps_per_trajectory 1
+qhb_steps 1
+fresh
+no_gauge_fix
+forget
+
+warms 10000
+trajecs 2000
+traj_between_meas 100
+beta 1.2
+h 0.00
+steps_per_trajectory 1
+qhb_steps 1
+fresh
+no_gauge_fix
+forget
+
+
