@@ -43,10 +43,6 @@ void ploop_less_slice(int time,int parity);
 
 
 // U(1) stuff
-void flux(int tslice, int fluxdir, int q, int gen);
-void monte_space_flux(double w, int NumStp, int tslice, int fluxdir);
-void monte_time_twist(double w, int NumStp);
-int update_except_fluxplane();
 float make_change_u1(su3_matrix *change, site *s, float scale);
 void monte_u1(int NumStp);
 int update_u1();
@@ -54,6 +50,11 @@ void reunitarize_u1();
 
 
 // twisted BCs, and flux stuff
+void flux(int tslice, int fluxdir, int q, int gen);
+void monte_flux(double w, int NumStp, int tslice, int fluxdir);
+void monte_space_flux(double w, int NumStp, int tslice, int fluxdir);
+void monte_time_twist(double w, int NumStp);
+int update_except_fluxplane();
 void plaq_twist(double w, int gen, double *ss_plaq,double *st_plaq);
 void load_plaq(double *ss_plaq,double *st_plaq);
 void load_plaq_w(double w, double *ss_plaq,double *st_plaq);
@@ -63,3 +64,4 @@ void get_flux(int zplane, int loadPlaq);
 void get_flux_w(double w, int zplane, int loadPlaq);
 void set_wphase(double w, int gen, int cc, int y, su3_matrix *wphase);
 int update_flux(double w);
+void meas_flux(double **mflux, double w);

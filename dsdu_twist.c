@@ -28,6 +28,10 @@ void dsdu_twist(float w, int dir1,int parity, int gen) {
 
    start=1; /* indicates staple sum not initialized */
    
+   set_wphase(w, 3, 1, ny, &wphase);  // wphase*
+   //	 printf("set_w(-1):\n");
+   //	 dumpmat(&wphase);
+   
    for(dir2=XUP;dir2<=TUP;dir2++)if(dir2 != dir1) {
 	 /* get link[dir2] from direction dir1 on other parity */
 	 tag0 = start_gather_site( F_OFFSET(link[dir2]), sizeof(su3_matrix),
@@ -41,12 +45,11 @@ void dsdu_twist(float w, int dir1,int parity, int gen) {
 	 tag2 = start_gather_site( F_OFFSET(link[dir1]), sizeof(su3_matrix),
 				   dir2, parity, gen_pt[2] );
 	 
+
 	 /////////////////////////////////////////////////
 	 /* Construct Lower staple (computed at backward site) */
 	 wait_gather(tag0);
-	 set_wphase(w, 3, 1, ny, &wphase);  // wphase*
-	 //	 printf("set_w(-1):\n");
-	 //	 dumpmat(&wphase);
+
 	 FORSOMEPARITY(i,st,otherparity){
 	    su3mat_copy((su3_matrix *)gen_pt[0][i], &tfin);
 
@@ -56,7 +59,7 @@ void dsdu_twist(float w, int dir1,int parity, int gen) {
 	    } else 
 	    if((st->y==ny-1) && (dir1==1) && (dir2==0)) {
 		  // mult: "an" here because, wphase set with -1 above
-		  mult_su3_nn( &wphase, (su3_matrix *)gen_pt[0][i], &tfin );
+                  mult_su3_an( &wphase, (su3_matrix *)gen_pt[0][i], &tfin );   // nn -> an
 		  mult_su3_an( &(st->link[dir2]), &(st->link[dir1]), &tmat1);
 	    } else {
 		  mult_su3_an( &(st->link[dir2]), &(st->link[dir1]), &tmat1);

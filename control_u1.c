@@ -34,7 +34,8 @@ initialize_machine(&argc,&argv);
   /* set up */
   prompt = setup();
   
-  srand48(0);
+  // for testing against U(1) scalar C code
+  //  srand48(0);
   
   /* loop over input sets */
   while( readin(prompt) == 0){
@@ -95,8 +96,8 @@ initialize_machine(&argc,&argv);
 		 printf("PLAQ[%d]: %f %f\n", dir, 
 		     s->plaq[dir].e[0][0].real, s->plaq[dir].e[0][0].imag);
 		 dumpmat(&(s->plaq[dir]));
-		 //printf("link[%d]:\n", dir);
-		 //dumpmat(&(s->link[dir]));
+		 printf("link[%d]:\n", dir);
+		 dumpmat(&(s->link[dir]));
 	      }
 	   }
 	   FORSOMEPARITY(i, s, ODD) { 
@@ -106,14 +107,14 @@ initialize_machine(&argc,&argv);
 		 printf("PLAQ[%d]: %f %f\n", dir,
 			s->plaq[dir].e[0][0].real, s->plaq[dir].e[0][0].imag);
 		 dumpmat(&(s->plaq[dir]));
-		 //	      printf("link[%d]:\n", dir);
-		 //	      dumpmat(&(s->link[dir]));
+		 	      printf("link[%d]:\n", dir);
+		 	      dumpmat(&(s->link[dir]));
 	      }
 	   }
 	   /**/
 	   
 	   
-	   /**/
+	   /**
 	   printf("BEGIN staples\n");
 	   for(dir=0; dir<4; dir++) {
 	      dsdu_qhb(dir, EVEN);
@@ -136,14 +137,14 @@ initialize_machine(&argc,&argv);
 	      }
 	   }
 	   //	exit(0);
-	   /**/
+	   **/
 
 
 
 	   /* measure every "propinterval" trajectories */
 	   if((todo%propinterval) == 0){
 	      
-	       /**/
+	       /**
 	       printf("BEGIN staples\n");
 	       for(dir=0; dir<4; dir++) {
 		  dsdu_qhb(dir, EVEN);
@@ -165,7 +166,7 @@ initialize_machine(&argc,&argv);
 			    s->staple.e[0][0].real,s->staple.e[0][0].imag);
 		  }
 	       }
-	       /**/
+	       **/
 
 
 
@@ -192,6 +193,7 @@ initialize_machine(&argc,&argv);
                 fflush(stdout);
             }
         }       /* end loop over trajectories */
+
 	/*
 #ifdef ORA_ALGORITHM
        // gaugefix if requested

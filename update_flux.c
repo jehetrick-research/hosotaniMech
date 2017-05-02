@@ -16,8 +16,8 @@ int update_flux(double w) {
    
    /* do "stepsQ" metropolis updates, preserving links[0,1] at z=0 on tslice=0 */
    // flux tslice=0, fluxdir=0
-   monte_space_flux(w, stepsQ, 0, 0);
-   monte_time_twist(w, stepsQ);
+   monte_flux(w, stepsQ, 0, 0);
+   //   monte_time_twist(w, stepsQ);
    
    /* reunitarize the gauge field */
    

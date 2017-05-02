@@ -22,36 +22,35 @@ void fluxplane(double w, int gen) {
    float wcs, wsn;
    float wcs2, wsn2;
    
-   //////////////////////////////////////////////
-   // Assumes COLD Lattice has been initialized
-   //////////////////////////////////////////////
-
-   FORALLSITES(i,s) {
-      //      if(s->z == 0) {
-	 switch(gen) {
-	 case 3:
+   switch(gen) {
+   case 3:
+      FORALLSITES(i,s) {
+	 if(s->z == 0) {
 	    wcs = cos(w*(s->y));
 	    wsn = -sin(w*(s->y));
 	    
-	    //	    for(a=0; a<3; a++)  {
-	    //	       for(b=0; b<3; b++)  {
-	    //		  if (a != b)  {
-	    //		     s->link[0].e[a][b] = cmplx(0.0,0.0);
-	    //		     s->link[1].e[a][b] = cmplx(0.0,0.0);
-	    //		  }
-		     s->link[0].e[0][0] = cmplx(wcs, wsn);	
-		     s->link[0].e[1][1] = cmplx(wcs,-wsn);
-		     s->link[0].e[2][2] = cmplx(1.0, 0.0);
-		     // perhaps not needed
-		     //		     s->link[1].e[0][0] = cmplx(1.0, 0.0);	
-		     //		     s->link[1].e[1][1] = cmplx(1.0, 0.0);
-		     //		     s->link[1].e[2][2] = cmplx(1.0, 0.0);
-		     //		  }
-		     //	       }
-		     //	    }
-	    break;
+	    for(a=0; a<3; a++)  {
+	       for(b=0; b<3; b++)  {
+		  if (a != b)  {
+		     s->link[0].e[a][b] = cmplx(0.0,0.0);
+	    	     s->link[1].e[a][b] = cmplx(0.0,0.0);
+	    	  }
+	       }
+	    }
+	    s->link[0].e[0][0] = cmplx(wcs, wsn);	
+	    s->link[0].e[1][1] = cmplx(wcs,-wsn);
+	    s->link[0].e[2][2] = cmplx(1.0, 0.0);
+	    // needed?
+	    s->link[1].e[0][0] = cmplx(1.0, 0.0);	
+	    s->link[1].e[1][1] = cmplx(1.0, 0.0);
+	    s->link[1].e[2][2] = cmplx(1.0, 0.0);
+	 }
+      }
+      break;
 
-	 case 8:
+   case 8:
+      FORALLSITES(i,s) {
+	 if(s->z == 0) {
 	    wcs = cos(w*(s->y));
 	    wsn = -sin(w*(s->y));
 	    wcs2 = cos(2*w*(s->y));
@@ -63,22 +62,19 @@ void fluxplane(double w, int gen) {
 		     s->link[0].e[a][b] = cmplx(0.0, 0.0);
 		     s->link[1].e[a][b] = cmplx(0.0,0.0);
 		  }
-		  else  {
-		     s->link[0].e[0][0] = cmplx(wcs,  wsn);	
-		     s->link[0].e[1][1] = cmplx(wcs,  wsn);
-		     s->link[0].e[2][2] = cmplx(wcs2,-wsn2);
-		     // needed?
-		     s->link[1].e[0][0] = cmplx(1.0, 0.0);	
-		     s->link[1].e[1][1] = cmplx(1.0, 0.0);
-		     s->link[1].e[2][2] = cmplx(1.0, 0.0);
-		  }
 	       }
 	    }
-	    break;
-	 } 
-	 //      }
+	    s->link[0].e[0][0] = cmplx(wcs,  wsn);	
+	    s->link[0].e[1][1] = cmplx(wcs,  wsn);
+	    s->link[0].e[2][2] = cmplx(wcs2,-wsn2);
+	    // needed?
+	    s->link[1].e[0][0] = cmplx(1.0, 0.0);	
+	    s->link[1].e[1][1] = cmplx(1.0, 0.0);
+	    s->link[1].e[2][2] = cmplx(1.0, 0.0);
+	 }
+      }
+      break;
    }
-
 } // flux(int tslice, int fluxdir, int q, int gen)
 
 
@@ -163,13 +159,97 @@ void load_plaq_w(double w, double *ss_plaq,double *st_plaq) {
 }
 
 
+void load_plaq(double *ss_plaq,double *st_plaq) {
+   su3_matrix *su3mat;
+   register int i,dir1,dir2;
+   site *s;
+   register su3_matrix *m1,*m4;
+   su3_matrix mtmp, mtmp2;
+   double ss_sum,st_sum;
+   msg_tag *mtag0,*mtag1;
+   int pln; // tracks x-y, x-z, y-z, x-t, y-t, z-t planes for s->plaq[pln]
+   //   double wcs,wsn,w2cs,w2sn; // flux amount
+   su3_matrix wphase;
+   int munu;
+
+
+   printf("FIX THIS:  load_plaq()\n");
+   exit(0);
+
+
+   pln = 0;
+   ss_sum = st_sum = 0.0;
+
+
+   //   set_wphase(w, 3, -1, ny, &wphase);
+   //   printf("load_plaq: set_wphase:\n");
+   //   dumpmat(&wphase);
+
+   su3mat = (su3_matrix *)malloc(sizeof(su3_matrix)*sites_on_node);
+   if(su3mat == NULL) {
+      printf("plaquette: can't malloc su3mat\n");
+      fflush(stdout); terminate(1);
+   }
+   
+
+   munu = 0;
+   for(dir1=YUP;dir1<=TUP;dir1++){
+      for(dir2=XUP;dir2<dir1;dir2++){
+
+	 mtag0 = start_gather_site( F_OFFSET(link[dir2]), sizeof(su3_matrix),
+				    dir1, EVENANDODD, gen_pt[0] );
+	 mtag1 = start_gather_site( F_OFFSET(link[dir1]), sizeof(su3_matrix),
+				    dir2, EVENANDODD, gen_pt[1] );
+	 
+	 FORALLSITES(i,s){
+	    m1 = &(s->link[dir1]);
+	    m4 = &(s->link[dir2]);
+	    mult_su3_an(m4,m1,&su3mat[i]);
+	 }
+	 
+	 wait_gather(mtag0);
+	 wait_gather(mtag1);
+	 
+	 FORALLSITES(i,s){
+	    // add w-phase to xy B.C.
+	    if((s->y==ny-1) && (dir1==1) && (dir2==0)) {
+	       mult_su3_nn( &su3mat[i], (su3_matrix *)(gen_pt[0][i]),
+			 &mtmp2);
+	       mult_su3_nn(&mtmp2, &wphase, &mtmp);
+	    } else {
+	       mult_su3_nn( &su3mat[i], (su3_matrix *)(gen_pt[0][i]),
+			    &mtmp);
+	    }
+	    mult_su3_an((su3_matrix *)(gen_pt[1][i]), &mtmp, 
+			&(s->plaq[munu]));
+
+	    if(dir1==TUP ) { st_sum += trace_su3(&(s->plaq[munu])).real; }
+	    else { ss_sum += (trace_su3(&(s->plaq[munu])).real); }
+	 }
+	       
+	 cleanup_gather(mtag0);
+	 cleanup_gather(mtag1);
+	 munu++;
+      }
+   }
+   g_doublesum( &ss_sum );
+   g_doublesum( &st_sum );
+   *ss_plaq = ss_sum /((Real)(3*nx*ny*nz*nt));
+   *st_plaq = st_sum /((double)(3*nx*ny*nz*nt));
+   
+   free(su3mat);
+}
+
+
+
+
 
 ///////////////////////////////////////////
 // if loadPlaq = 1, will (re)load_plaq() //
 /////////////////////////////////////////// 
 
 void get_flux_w(double w, int zplane, int loadPlaq) {
-   register int i,a,b;
+   register int i,a;
    register site *s;
    complex lam[3];
    double theta[3];
@@ -213,3 +293,45 @@ void get_flux_w(double w, int zplane, int loadPlaq) {
 }
 
 
+
+// Load P01 plaquette sums into mflux array.
+// ASSUMES load_plaq_twist() has been called!!
+
+void meas_flux(double **mflux, double w) {
+   int z,t;
+   int i;
+   site *s;
+   double th, thexptn;
+
+   for(t=0; t<nt; t++)
+      for(z=0; z<nz; z++)
+         mflux[t][z] = 0.0;
+
+   FORALLSITES(i,s) {
+      th = atan2(-(s->plaq[0].e[0][0].imag), s->plaq[0].e[0][0].real);
+      mflux[s->t][s->z] += th;
+   }
+
+   for(t=0; t<nt; t++)
+      for(z=0; z<nz; z++)
+         mflux[t][z] /= nx*ny;
+   
+   for(z=0; z<nz; z++)
+      for(t=1; t<nt; t++)
+         mflux[0][z] += mflux[t][z];
+
+   g_vecdoublesum(mflux[0], nz);
+
+   node0_printf("FLUX %f ", beta);
+   thexptn = 0.0;
+   for(z=0; z<nz; z++) {
+      mflux[0][z] /= nt;
+      node0_printf("%f ", mflux[0][z] );
+      if(z!=0) thexptn += mflux[0][z];
+   }
+   if(w != 0) { 
+      node0_printf("halfway: %f %f", thexptn/(nz-1)/w, mflux[0][nz/2]/w); 
+   } else { node0_printf("w=0"); }
+   node0_printf("\n");
+
+}

@@ -40,7 +40,88 @@ complex base_ploop, base_density;
 
 
 
-// this monte_space() does not update the 'fluxdir' links on t-slice 'tslice' 
+// Does not update the dir=0,1 links on t-slice 'tslice' 
+
+void monte_flux(double w, int NumStp, int tslice, int fluxdir) {
+  int Nhit;
+  int parity;
+  float scale;		/* limits size of change matrix */
+  float theta,theta_rms;	/* rms angle of change matrix */
+  su3_matrix change;	/* proposed change in link */
+  su3_matrix newlink;	/* change * oldlink */
+  int dir, i;
+  register site *st;
+  int accept, reject;	/* number of accepts and rejects */
+  float oldaction, newaction;
+  su3_matrix oldUstaple, newUstaple;
+  
+
+  accept = reject = 0;
+  theta_rms = 0.0;
+  scale = 1.4;
+
+  for(parity=ODD;parity<=EVEN;parity++) {
+     for(dir=0; dir<4; dir++) {
+      /* compute the gauge force */
+       dsdu_twist(w,dir,parity,3); 
+
+      /* now for the Metropolis updating */
+      FORSOMEPARITY(i,st,parity) {
+
+	 // leave s->z==0 xy-plane alone:
+	 //////////////////////////////////////
+	 if((st->z == 0) && ((dir == 0) || (dir == 1))) { continue; }
+
+	    for( Nhit = 0 ; Nhit < NumStp; Nhit++) { 
+	       theta = make_change(&change,st,scale); 
+	       theta_rms += theta*theta;
+	       mult_su3_nn( &change, &(st->link[dir]), &newlink );
+	       
+	       /* compute old and new SU(3) action */
+	       /*
+	       oldaction=(0.333333*beta)*realtrace_su3( &(st->link[dir]), 
+							&(st->staple) );
+	       newaction=(0.333333*beta)*realtrace_su3( &newlink, 
+	       					&(st->staple) );
+	       */
+
+	       /* compute old action and new action */
+	       mult_su3_na(&(st->link[dir]), &(st->staple), &oldUstaple);
+	       mult_su3_na(&newlink, &(st->staple), &newUstaple);
+
+	       //newaction = beta*cos(theta_new - theta_staple);
+	       oldaction = beta * oldUstaple.e[0][0].real;
+	       newaction = beta * newUstaple.e[0][0].real;
+
+
+	       /* accept or reject */
+	       if( newaction > oldaction ){
+		  st->link[dir]=newlink;
+		  accept++;
+	       }
+	       else{ /* trace decreased */
+		  //		  printf("CALL myrand() in monte_space_flux() accept/reject\n");
+		  if( myrand(&(st->site_prn)) < exp( newaction-oldaction ) ){
+		     st->link[dir]=newlink;
+		     accept++;
+		  }
+		  else{
+		     reject++;
+		  }
+	       }
+	    } /* Nhit */
+      } /*   st */
+    } /*  direction */
+  } /* parity */
+
+  /* diagnostics */
+/**
+  printf("monte_space: accept= %d reject= %d fraction= %.2f  theta_rms= %.3f\n",
+    accept,reject,accept/(float)(accept+reject),
+    sqrt(theta_rms/(accept+reject)) );
+**/
+
+} /* monte_flux */
 
 void monte_space_flux(double w, int NumStp, int tslice, int fluxdir) {
   int Nhit;
@@ -100,7 +181,7 @@ void monte_space_flux(double w, int NumStp, int tslice, int fluxdir) {
 		  accept++;
 	       }
 	       else{ /* trace decreased */
-		  printf("CALL myrand() in monte_space_flux() accept/reject\n");
+		  //		  printf("CALL myrand() in monte_space_flux() accept/reject\n");
 		  if( myrand(&(st->site_prn)) < exp( newaction-oldaction ) ){
 		     st->link[dir]=newlink;
 		     accept++;
@@ -168,7 +249,7 @@ void monte_time_twist(double w, int NumStp) {
       FORSOMEPARITY(i,st,parity)if(st->t==time) {
 	/* generate random SU(3) matrix */
 	for( Nhit = 0 ; Nhit < NumStp; Nhit++) {
-	   printf("CALL make_change() in monte_time_twist()\n");
+	   //	   printf("CALL make_change() in monte_time_twist()\n");
 	  theta = make_change(&change,st,scale); 
 	  theta_rms += theta*theta;
 	  mult_su3_nn( &change, &(st->link[TUP]), &newlink );
@@ -293,7 +374,7 @@ float make_change(su3_matrix *mat, site *st, float scale){
   //  do{ theta = scale * (myrand(&(st->site_prn)) - 0.5); }
   //	while( fabs(theta) < 0.25*scale );
 
-  printf("CALL make_change()\n");
+  //  printf("CALL make_change()\n");
   theta = scale * 2*(myrand(&(st->site_prn)) - 0.5);
   c = cos(theta); s = sin(theta);
 

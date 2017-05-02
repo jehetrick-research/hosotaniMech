@@ -75,8 +75,7 @@ void monte_u1(int NumStp) {
 	 for( Nhit = 0 ; Nhit < NumStp; Nhit++) { 
 	    //	    printf("update %d %d %d %d -> %d p %d drand: %f\n", 
 	    //		   st->x,st->y,st->z,st->t,dir, parity,drand48());
-
-	    printf("CALL make_change_u1() in monte_u1()\n");
+	    //	    printf("CALL make_change_u1() in monte_u1()\n");
 
 	    dtheta = make_change_u1( &change, st, scale); 
 	    mult_su3_nn(&change, &(st->link[dir]), &Unew);
@@ -96,7 +95,7 @@ void monte_u1(int NumStp) {
 	       accept++;
 	    }
 	    else{ /* trace decreased */
-	       printf("CALL myrand() in accept/reject update\n");
+	       //	       printf("CALL myrand() in accept/reject update\n");
 	       r = myrand(&(st->site_prn)); 
 	       //r = drand48(); 
 	       if( r < exp( newaction-oldaction ) ){
@@ -422,6 +421,9 @@ void ploop_less_slice(int time,int parity){
 }
 
 
+
+
+
 /* Make change matrix for U(1) Metropolis step.  */
 
 float make_change_u1(su3_matrix *mat, site *st, float scale){
@@ -437,7 +439,7 @@ float make_change_u1(su3_matrix *mat, site *st, float scale){
     mat->e[ia][ia].real = 1.0;
   }
 
-  printf("CALL myrand() in make_change_u1()\n");
+  //  printf("CALL myrand() in make_change_u1()\n");
 
   theta = scale * 2 * (myrand(&(st->site_prn)) - 0.5);
   //theta = scale * 2 * (drand48() - 0.5);

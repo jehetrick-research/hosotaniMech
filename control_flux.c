@@ -22,19 +22,28 @@ int main(int argc, char *argv[])  {
    site *s;
    //   int x,y,z,t;
    int dir;
-
    double w;
+   double **mflux;
 
-initialize_machine(&argc,&argv);
+
+   initialize_machine(&argc,&argv);
 
   /* Remap standard I/O */
   if(remap_stdio_from_args(argc, argv) == 1)terminate(1);
 
- g_sync();
+  g_sync();
     /* set up */
     prompt = setup();
 
     srand48(0);
+
+    ////////////////////////////////////////
+    // make flux measurement array
+
+    mflux = (double **)malloc(nt*sizeof(double *));
+    for(i=0; i<nt; i++) {
+       mflux[i] = (double *)malloc(nz*sizeof(double));
+    }
 
 
     /* loop over input sets */
@@ -43,29 +52,38 @@ initialize_machine(&argc,&argv);
         /* perform warmup trajectories */
         dtime = -dclock();
 
-	w = 0.0;
-
+	w = 0.1;
+	node0_printf("w = %f\n", w); 
 
 	d_plaquette(&dssplaq,&dstplaq);
 	plp = ploop();
+	if(this_node==0)printf("#meas data: beta h P_re P_im plaq_s plaq_t plaq\n");
 	if(this_node==0)printf("INITIAL %f %f %f %f %f %f %f\n",
 			       beta, h, (double)(plp.real-1)/2.0,
 			       (double)plp.imag,(dssplaq-1)/2,(dstplaq-1)/2,
 			       (dssplaq+dstplaq-2)/4);
 
 
-	//	fluxplane(w, 3);
+	// install flux plane (z=0)
+	fluxplane(w, 3);
+	if(this_node==0)printf("installed flux plane z=0\n");
+
 	//	load_plaq_w(w, &dssplaq,&dstplaq);
 
 	//	if(this_node==0)printf("load_plaq %f %f %f\n",
 	//	       (dssplaq-1)/2,(dstplaq-1)/2,(dssplaq+dstplaq-2)/4);
 
-	//	plaq_twist(w, 3,&dssplaq,&dstplaq);
-	//      	if(this_node==0)printf("plaq_twist %f %f %f\n",
-	//			       (dssplaq-1)/2,(dstplaq-1)/2,(dssplaq+dstplaq-2)/4);
+		plaq_twist(w, 3,&dssplaq,&dstplaq);
+	      	if(this_node==0)printf("plaq_twist %f %f %f\n",
+				       (dssplaq-1)/2,(dstplaq-1)/2,(dssplaq+dstplaq-2)/4);
 
 	//	exit(0);
 	/**/
+
+
+	// measure flux
+	load_plaq_w(w, &dssplaq, &dstplaq);
+	meas_flux(mflux, w);
 
 	
 
@@ -75,27 +93,16 @@ initialize_machine(&argc,&argv);
         if(this_node==0)printf("%d WARMUPS COMPLETED\n", warms);
 
 
-
-
-	// install flux plane
-	// timeslice=0, fluxdir=0, q=1, gen=3
-	//	flux(0, 0, 1, 3);
-	//	load_plaq(&dssplaq, &dstplaq);
-	//	get_flux(0);
-
-        // measure
+	/**/
 	d_plaquette(&dssplaq,&dstplaq);
-
-	
-	/**
 	if(this_node==0)printf("PLAQ %f %f %f %f %f %f %f\n",
 			       beta, h, (double)(plp.real-1)/2.0,
 			       (double)plp.imag,(dssplaq-1)/2,(dstplaq-1)/2,
 			       (dssplaq+dstplaq-2)/4);
-	**/
+	/**/
 	plp = ploop();
 	plaq_twist(w, 3, &dssplaq,&dstplaq);
-	if(this_node==0)printf("MEASU1TWIST %f %f %f %f %f %f %f\n",
+	if(this_node==0)printf("PLAQTWIST %f %f %f %f %f %f %f\n",
 			       beta, h, (double)(plp.real-1)/2.0,
 			       (double)plp.imag,(dssplaq-1)/2,(dstplaq-1)/2,
 			       (dssplaq+dstplaq-2)/4);
@@ -105,66 +112,84 @@ initialize_machine(&argc,&argv);
         for(todo=trajecs; todo > 0; --todo ){ 
 
             /* do the trajectories */
-   	   update_flux(w);
+	   update_flux(w);
 
 
-	   /**/
+	   /**
+	   load_plaq_w(w, &dssplaq, &dstplaq);
 	   FORSOMEPARITY(i, s, EVEN) { 
 	      printf("x= %d y= %d z= %d t= %d:\n",
 		     s->x,s->y,s->z,s->t);
-	      for(dir=0; dir<4; dir++) {
+	      for(dir=0; dir<6; dir++) {
 		 printf("PLAQ[%d]: %f %f\n", dir, 
 			s->plaq[dir].e[0][0].real, s->plaq[dir].e[0][0].imag);
-		 dumpmat(&(s->plaq[dir]));
-		 //printf("link[%d]:\n", dir);
-		 //dumpmat(&(s->link[dir]));
+		 //		 dumpmat(&(s->plaq[dir]));
+		 //		 printf("link[%d]:\n", dir);
+		 //		 dumpmat(&(s->link[dir]));
 	      }
 	   }
+	   printf("ODD only\n");
 	   FORSOMEPARITY(i, s, ODD) { 
 	      printf("x= %d y= %d z= %d t= %d:\n",
 		     s->x,s->y,s->z,s->t);
-	      for(dir=0; dir<4; dir++) {
+	      for(dir=0; dir<6; dir++) {
 		 printf("PLAQ[%d]: %f %f\n", dir,
 			s->plaq[dir].e[0][0].real, s->plaq[dir].e[0][0].imag);
-		 dumpmat(&(s->plaq[dir]));
-		 //	      printf("link[%d]:\n", dir);
-		 //	      dumpmat(&(s->link[dir]));
+		 //		 dumpmat(&(s->plaq[dir]));
+		 //		 	      printf("link[%d]:\n", dir);
+		 //		 	      dumpmat(&(s->link[dir]));
 	      }
 	   }
-	   /**/
+	   **/
 	   
-	   /**/
+	   /**
 	   printf("BEGIN staples\n");
 	   for(dir=0; dir<4; dir++) {
 	      dsdu_twist(w, dir, EVEN, 3);
 	      FORSOMEPARITY(i, s, EVEN) { 
-		 printf("x= %d y= %d z= %d t= %d dir= %d ",
-			s->x,s->y,s->z,s->t,dir);   
-		 printf("link[%d]:\n", dir);
-		 dumpmat(&(s->link[dir]));
-		 printf("staple= %f %f\n",
+		 //		 printf("x= %d y= %d z= %d t= %d dir= %d ",
+		 //	s->x,s->y,s->z,s->t,dir);   
+		 //printf("link[%d]:\n", dir);
+		 //dumpmat(&(s->link[dir]));
+		 //printf("staple= %f %f\n",
+		 //	s->staple.e[0][0].real,s->staple.e[0][0].imag);
+
+		 printf("L %d %d %d %d [%d]: %f %f\n",s->x,s->y,s->z,s->t,dir,
+			s->link[dir].e[0][0].real,s->link[dir].e[0][0].imag);
+		 printf("S %d %d %d %d [%d]: %f %f\n",s->x,s->y,s->z,s->t,dir,
 			s->staple.e[0][0].real,s->staple.e[0][0].imag);
+
 	      }
 	      dsdu_twist(w, dir, ODD, 3);
 	      FORSOMEPARITY(i, s, ODD) { 
-		 printf("x= %d y= %d z= %d t= %d dir= %d ",
-			s->x,s->y,s->z,s->t,dir);   
-		 printf("link[%d]:\n", dir);
-		 dumpmat(&(s->link[dir]));
-		 printf("staple= %f %f\n",
+		 //printf("x= %d y= %d z= %d t= %d dir= %d ",
+		 //	s->x,s->y,s->z,s->t,dir);   
+		 //printf("link[%d]:\n", dir);
+		 //dumpmat(&(s->link[dir]));
+		 //printf("staple= %f %f\n",
+		 //	s->staple.e[0][0].real,s->staple.e[0][0].imag);
+
+		 printf("L %d %d %d %d [%d]: %f %f\n",s->x,s->y,s->z,s->t,dir,
+			s->link[dir].e[0][0].real,s->link[dir].e[0][0].imag);
+		 printf("S %d %d %d %d [%d]: %f %f\n",s->x,s->y,s->z,s->t,dir,
 			s->staple.e[0][0].real,s->staple.e[0][0].imag);
+
 	      }
 	   }
-	   /**/
+	   **/
 	   
 	   
 
             /* measure every "propinterval" trajectories */
             if((todo%propinterval) == 0){
             
-	       load_plaq_w(w, &dssplaq, &dstplaq);
-	       //	       get_flux_w(w, nz/2, 0);
 
+	       // measure flux
+	       load_plaq_w(w, &dssplaq, &dstplaq);
+	       meas_flux(mflux, w);
+
+	       // ???
+	       // get_flux_w(w, nz/2, 0);
 
                d_plaquette(&dssplaq,&dstplaq);
 	       plp = ploop();
